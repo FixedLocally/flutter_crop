@@ -108,7 +108,7 @@ class ZoomableImageState extends State<ZoomableImage> {
   }
 
   void _handleScaleStart(ScaleStartDetails d) {
-    print("starting scale at ${d.focalPoint} from $_offset $_scale");
+//    print("starting scale at ${d.focalPoint} from $_offset $_scale");
     _startingFocalPoint = d.focalPoint;
     _previousOffset = _offset;
     _previousScale = _scale;
@@ -148,6 +148,7 @@ class ZoomableImageState extends State<ZoomableImage> {
 
   void _handleScaleEnd(ScaleEndDetails details) {
     print('visible rect=$visibleRect');
+    print('crop rect=${getCropRect()}');
   }
 
   @override
@@ -252,17 +253,17 @@ class ZoomableImageState extends State<ZoomableImage> {
                 children: <Widget>[
                   Container(
                     height: 16,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.transparent,
                   ),
                   Container(
                     height: 3,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.white70,
                   ),
                   Container(
                     height: 16,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.transparent,
                   ),
                 ],
@@ -288,17 +289,17 @@ class ZoomableImageState extends State<ZoomableImage> {
                 children: <Widget>[
                   Container(
                     height: 16,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.transparent,
                   ),
                   Container(
                     height: 3,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.white70,
                   ),
                   Container(
                     height: 16,
-                    width: _cropArea.width ?? 0,
+                    width: _cropArea?.width ?? 0,
                     color: Colors.transparent,
                   ),
                 ],
@@ -323,17 +324,17 @@ class ZoomableImageState extends State<ZoomableImage> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 16,
                     color: Colors.transparent,
                   ),
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 3,
                     color: Colors.white70,
                   ),
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 16,
                     color: Colors.transparent,
                   ),
@@ -359,17 +360,17 @@ class ZoomableImageState extends State<ZoomableImage> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 16,
                     color: Colors.transparent,
                   ),
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 3,
                     color: Colors.white70,
                   ),
                   Container(
-                    height: _cropArea.height ?? 0,
+                    height: _cropArea?.height ?? 0,
                     width: 16,
                     color: Colors.transparent,
                   ),
@@ -434,7 +435,7 @@ class ZoomableImageState extends State<ZoomableImage> {
       screenScale = hScale;
     }
     if (screenScale > _minScale) {
-      _minScale = screenScale;
+      _minScale = screenScale * 0.8;
     }
 
     // initial crop area
@@ -462,6 +463,14 @@ class ZoomableImageState extends State<ZoomableImage> {
     top = top.clamp(0.0, _image.height.toDouble());
     right = right.clamp(0.0, _image.width.toDouble());
     bottom = bottom.clamp(0.0, _image.height.toDouble());
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  Rect getCropRect() {
+    double left = (_cropArea.left - _offset.dx) / _scale;
+    double top = (_cropArea.top - _offset.dy) / _scale;
+    double right = (_cropArea.right - _offset.dx) / _scale;
+    double bottom = (_cropArea.bottom - _offset.dy) / _scale;
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
