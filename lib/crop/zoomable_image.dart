@@ -56,6 +56,16 @@ class ZoomableImageState extends State<ZoomableImage> {
 
   Rect _cropArea;
 
+  Rect get clampedCropArea {
+    Rect validArea = validOffset;
+    double left = _cropArea.left.clamp(validArea.left, double.infinity);
+    double top = _cropArea.top.clamp(validArea.top, double.infinity);
+    double right = _cropArea.right.clamp(double.negativeInfinity, validArea.right);
+    double bottom = _cropArea.bottom.clamp(double.negativeInfinity, validArea.bottom);
+    Rect adjusted = Rect.fromLTRB(left, top, right, bottom);
+    return adjusted;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -140,15 +150,21 @@ class ZoomableImageState extends State<ZoomableImage> {
     double clampedX = newOffset.dx.clamp(minX, maxX);
     double clampedY = newOffset.dy.clamp(minY, maxY);
     newOffset = Offset(clampedX, clampedY);
+
+    // make sure the crop area is within the bounds
+    print(_cropArea);
     setState(() {
       _scale = newScale;
       _offset = newOffset;
+      _cropArea = clampedCropArea;
     });
   }
 
   void _handleScaleEnd(ScaleEndDetails details) {
     print('visible rect=$visibleRect');
-    print('crop rect=${getCropRect()}');
+    print('crop rect=$cropRect');
+    print('current crop area=$_cropArea');
+    print('valid crop area=$validOffset');
   }
 
   @override
@@ -246,6 +262,7 @@ class ZoomableImageState extends State<ZoomableImage> {
                 }
                 setState(() {
                   _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top + dy, _cropArea.right, _cropArea.bottom);
+                  _cropArea = clampedCropArea;
                 });
               },
               child: Column(
@@ -282,6 +299,7 @@ class ZoomableImageState extends State<ZoomableImage> {
                 }
                 setState(() {
                   _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right, _cropArea.bottom + dy);
+                  _cropArea = clampedCropArea;
                 });
               },
               child: Column(
@@ -318,6 +336,7 @@ class ZoomableImageState extends State<ZoomableImage> {
                 }
                 setState(() {
                   _cropArea = Rect.fromLTRB(_cropArea.left + dx, _cropArea.top, _cropArea.right, _cropArea.bottom);
+                  _cropArea = clampedCropArea;
                 });
               },
               child: Row(
@@ -354,6 +373,7 @@ class ZoomableImageState extends State<ZoomableImage> {
                 }
                 setState(() {
                   _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right + dx, _cropArea.bottom);
+                  _cropArea = clampedCropArea;
                 });
               },
               child: Row(
@@ -451,6 +471,7 @@ class ZoomableImageState extends State<ZoomableImage> {
     }
     setState(() {
       _cropArea = Rect.fromLTRB(0.1 * _viewSize.width, 0.1 * _viewSize.height, 0.9 * _viewSize.width, 0.9 * _viewSize.height);
+      _cropArea = clampedCropArea;
     });
   }
 
@@ -466,11 +487,19 @@ class ZoomableImageState extends State<ZoomableImage> {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  Rect getCropRect() {
+  Rect get cropRect {
     double left = (_cropArea.left - _offset.dx) / _scale;
     double top = (_cropArea.top - _offset.dy) / _scale;
     double right = (_cropArea.right - _offset.dx) / _scale;
     double bottom = (_cropArea.bottom - _offset.dy) / _scale;
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  Rect get validOffset {
+    double left = 0 * _scale + _offset.dx;
+    double top = 0 * _scale + _offset.dy;
+    double right = _image.width * _scale + _offset.dx;
+    double bottom = _image.height * _scale + _offset.dy;
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
