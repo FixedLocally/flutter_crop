@@ -44,6 +44,8 @@ class CropState extends State<Crop> {
   Size _imageSize;
 
   Offset _startingFocalPoint;
+  Offset _startingPosition;
+  Rect _startingRect;
 
   Offset _previousOffset;
   Offset _offset; // where the top left corner of the image is drawn
@@ -152,7 +154,10 @@ class CropState extends State<Crop> {
   void _handleScaleEnd(ScaleEndDetails details) {
   }
 
-  void _handleDragStart([_]) {
+  void _handleDragStart(Offset offset) {
+    _startingPosition = offset;
+    _startingRect = _cropArea;
+    print(offset);
     setState(() {
       _dragging = true;
     });
@@ -302,10 +307,10 @@ class CropState extends State<Crop> {
             top: (topMargin - 16).clamp(0.0, double.infinity),
             child: GestureDetector(
               onVerticalDragUpdate: (DragUpdateDetails details) {
-                double dy = details.delta.dy;
-                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
+                double dy = details.globalPosition.dy - _startingPosition.dy;
+                double top = (_startingRect.top + dy).clamp(16.0, _startingRect.bottom - 40);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, top, _cropArea.right, _cropArea.bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, top, _startingRect.right, _startingRect.bottom));
                 });
               },
               child: Column(
@@ -328,7 +333,7 @@ class CropState extends State<Crop> {
                   ),
                 ],
               ),
-              onVerticalDragStart: _handleDragStart,
+              onVerticalDragStart: (_) => _handleDragStart(_.globalPosition),
               onVerticalDragCancel: _handleDragEnd,
               onVerticalDragEnd: _handleDragEnd,
             ),
@@ -339,10 +344,10 @@ class CropState extends State<Crop> {
             bottom: (bottomMargin - 16).clamp(0.0, double.infinity),
             child: GestureDetector(
               onVerticalDragUpdate: (DragUpdateDetails details) {
-                double dy = details.delta.dy;
-                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40.0, _viewSize.height - 16);
+                double dy = details.globalPosition.dy - _startingPosition.dy;
+                double bottom = (_startingRect.bottom + dy).clamp(_startingRect.top + 40.0, _viewSize.height - 16);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right, bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, _cropArea.top, _startingRect.right, bottom));
                 });
               },
               child: Column(
@@ -365,7 +370,7 @@ class CropState extends State<Crop> {
                   ),
                 ],
               ),
-              onVerticalDragStart: _handleDragStart,
+              onVerticalDragStart: (_) => _handleDragStart(_.globalPosition),
               onVerticalDragCancel: _handleDragEnd,
               onVerticalDragEnd: _handleDragEnd,
             ),
@@ -376,10 +381,10 @@ class CropState extends State<Crop> {
             bottom: bottomMargin,
             child: GestureDetector(
               onHorizontalDragUpdate: (DragUpdateDetails details) {
-                double dx = details.delta.dx;
-                double left = (_cropArea.left + dx).clamp(16.0, _cropArea.right - 40);
+                double dx = details.globalPosition.dx - _startingPosition.dx;
+                double left = (_startingRect.left + dx).clamp(16.0, _startingRect.right - 40);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _cropArea.top, _cropArea.right, _cropArea.bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _startingRect.top, _startingRect.right, _startingRect.bottom));
                 });
               },
               child: Row(
@@ -402,7 +407,7 @@ class CropState extends State<Crop> {
                   ),
                 ],
               ),
-              onHorizontalDragStart: _handleDragStart,
+              onHorizontalDragDown: (_) => _handleDragStart(_.globalPosition),
               onHorizontalDragCancel: _handleDragEnd,
               onHorizontalDragEnd: _handleDragEnd,
             ),
@@ -413,10 +418,10 @@ class CropState extends State<Crop> {
             bottom: bottomMargin,
             child: GestureDetector(
               onHorizontalDragUpdate: (DragUpdateDetails details) {
-                double dx = details.delta.dx;
-                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
+                double dx = details.globalPosition.dx - _startingPosition.dx;
+                double right = (_startingRect.right + dx).clamp(_startingRect.left + 40, _viewSize.width - 16);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, right, _cropArea.bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, _startingRect.top, right, _startingRect.bottom));
                 });
               },
               child: Row(
@@ -439,7 +444,7 @@ class CropState extends State<Crop> {
                   ),
                 ],
               ),
-              onHorizontalDragStart: _handleDragStart,
+              onHorizontalDragDown: (_) => _handleDragStart(_.globalPosition),
               onHorizontalDragCancel: _handleDragEnd,
               onHorizontalDragEnd: _handleDragEnd,
             ),
@@ -464,16 +469,17 @@ class CropState extends State<Crop> {
                   ),
                 ),
               ),
-              onPointerDown: _handleDragStart,
+              onPointerDown: (_) => _handleDragStart(_.position),
               onPointerCancel: _handleDragEnd,
               onPointerUp: _handleDragEnd,
               onPointerMove: (PointerMoveEvent details) {
-                double dx = details.delta.dx;
-                double left = (_cropArea.left + dx).clamp(16.0, _cropArea.right - 40);
-                double dy = details.delta.dy;
-                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
+                print('pos ${details.position}');
+                double dx = details.position.dx - _startingPosition.dx;
+                double left = (_startingRect.left + dx).clamp(16.0, _startingRect.right - 40);
+                double dy = details.position.dy - _startingPosition.dy;
+                double top = (_startingRect.top + dy).clamp(16.0, _startingRect.bottom - 40);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, top, _cropArea.right, _cropArea.bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, top, _startingRect.right, _startingRect.bottom));
                 });
               },
             ),
@@ -498,16 +504,16 @@ class CropState extends State<Crop> {
                   ),
                 ),
               ),
-              onPointerDown: _handleDragStart,
+              onPointerDown: (_) => _handleDragStart(_.position),
               onPointerCancel: _handleDragEnd,
               onPointerUp: _handleDragEnd,
               onPointerMove: (PointerMoveEvent details) {
-                double dx = details.delta.dx;
-                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
-                double dy = details.delta.dy;
-                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
+                double dx = details.position.dx - _startingPosition.dx;
+                double right = (_startingRect.right + dx).clamp(_startingRect.left + 40, _viewSize.width - 16);
+                double dy = details.position.dy - _startingPosition.dy;
+                double top = (_startingRect.top + dy).clamp(16.0, _startingRect.bottom - 40);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, top, right, _cropArea.bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, top, right, _startingRect.bottom));
                 });
               },
             ),
@@ -535,16 +541,16 @@ class CropState extends State<Crop> {
                   ),
                 ),
               ),
-              onPointerDown: _handleDragStart,
+              onPointerDown: (_) => _handleDragStart(_.position),
               onPointerCancel: _handleDragEnd,
               onPointerUp: _handleDragEnd,
               onPointerMove: (PointerMoveEvent details) {
-                double dx = details.delta.dx;
-                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
-                double dy = details.delta.dy;
-                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40, _viewSize.height - 16);
+                double dx = details.position.dx - _startingPosition.dx;
+                double right = (_startingRect.right + dx).clamp(_startingRect.left + 40, _viewSize.width - 16);
+                double dy = details.position.dy - _startingPosition.dy;
+                double bottom = (_startingRect.bottom + dy).clamp(_startingRect.top + 40, _viewSize.height - 16);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, right, bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, _startingRect.top, right, bottom));
                 });
               },
             ),
@@ -572,16 +578,16 @@ class CropState extends State<Crop> {
                   ),
                 ),
               ),
-              onPointerDown: _handleDragStart,
+              onPointerDown: (_) => _handleDragStart(_.position),
               onPointerCancel: _handleDragEnd,
               onPointerUp: _handleDragEnd,
               onPointerMove: (PointerMoveEvent details) {
-                double dx = details.delta.dx;
-                double left = (_cropArea.left + dx).clamp(16,  _cropArea.right - 40);
-                double dy = details.delta.dy;
-                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40, _viewSize.height - 16);
+                double dx = details.position.dx - _startingPosition.dx;
+                double left = (_startingRect.left + dx).clamp(16.0,  _startingRect.right - 40);
+                double dy = details.position.dy - _startingPosition.dy;
+                double bottom = (_startingRect.bottom + dy).clamp(_startingRect.top + 40, _viewSize.height - 16);
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _cropArea.top, _cropArea.right, bottom));
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _startingRect.top, _startingRect.right, bottom));
                 });
               },
             ),
