@@ -129,16 +129,16 @@ class CropState extends State<Crop> {
     final Offset normalizedOffset =
         (_startingFocalPoint - _previousOffset) / _previousScale;
     Offset newOffset = d.focalPoint - normalizedOffset * newScale;
-    double minX = _viewSize.width - _image.width * _scale;
-    double minY = _viewSize.height - _image.height * _scale;
-    double maxX = 0;
-    double maxY = 0;
-    if (0 < minX) {
-      maxX = minX = minX / 2;
-    }
-    if (0 < minY) {
-      maxY = minY = minY / 2;
-    }
+    double minX = (_cropArea.right - _image.width * _scale).clamp(-double.infinity, 16.0);
+    double minY = (_cropArea.bottom - _image.height * _scale).clamp(-double.infinity, 16.0);
+    double maxX = _cropArea.left;
+    double maxY = _cropArea.top;
+//    if (0 < minX) {
+//      maxX = minX = minX / 2;
+//    }
+//    if (0 < minY) {
+//      maxY = minY = minY / 2;
+//    }
     double clampedX = newOffset.dx.clamp(minX, maxX);
     double clampedY = newOffset.dy.clamp(minY, maxY);
     newOffset = Offset(clampedX, clampedY);
@@ -157,7 +157,6 @@ class CropState extends State<Crop> {
   void _handleDragStart(Offset offset) {
     _startingPosition = offset;
     _startingRect = _cropArea;
-    print(offset);
     setState(() {
       _dragging = true;
     });
@@ -473,13 +472,31 @@ class CropState extends State<Crop> {
               onPointerCancel: _handleDragEnd,
               onPointerUp: _handleDragEnd,
               onPointerMove: (PointerMoveEvent details) {
-                print('pos ${details.position}');
                 double dx = details.position.dx - _startingPosition.dx;
                 double left = (_startingRect.left + dx).clamp(16.0, _startingRect.right - 40);
                 double dy = details.position.dy - _startingPosition.dy;
                 double top = (_startingRect.top + dy).clamp(16.0, _startingRect.bottom - 40);
+                Offset offset = viewToSourceOffset(Offset(left, top));
+                double h = _startingRect.bottom - top;
+                double w = _startingRect.right - left;
+                // if we have too much width/height then just scale up the image to accommodate
+                if (_image.width * _scale < w) {
+                  _scale = w / _image.width;
+                }
+                if (_image.height * _scale < h) {
+                  _scale = h / _image.height;
+                }
+
+                Offset adjustment = Offset(0, 0);
+                if (offset.dx < 0) {
+                  adjustment -= Offset(offset.dx, 0);
+                }
+                if (offset.dy < 0) {
+                  adjustment -= Offset(0, offset.dy);
+                }
                 setState(() {
-                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, top, _startingRect.right, _startingRect.bottom));
+                  _cropArea = Rect.fromLTRB(left, top, _startingRect.right, _startingRect.bottom);
+                  _offset -= adjustment;
                 });
               },
             ),
@@ -512,8 +529,27 @@ class CropState extends State<Crop> {
                 double right = (_startingRect.right + dx).clamp(_startingRect.left + 40, _viewSize.width - 16);
                 double dy = details.position.dy - _startingPosition.dy;
                 double top = (_startingRect.top + dy).clamp(16.0, _startingRect.bottom - 40);
+                Offset offset = viewToSourceOffset(Offset(right, top));
+                double h = _startingRect.bottom - top;
+                double w = right - _startingRect.left;
+                // if we have too much width/height then just scale up the image to accommodate
+                if (_image.width * _scale < w) {
+                  _scale = w / _image.width;
+                }
+                if (_image.height * _scale < h) {
+                  _scale = h / _image.height;
+                }
+
+                Offset adjustment = Offset(0, 0);
+                if (offset.dx > _image.width) {
+                  adjustment -= Offset(offset.dx - _image.width, 0);
+                }
+                if (offset.dy < 0) {
+                  adjustment -= Offset(0, offset.dy);
+                }
                 setState(() {
                   _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, top, right, _startingRect.bottom));
+                  _offset -= adjustment;
                 });
               },
             ),
@@ -549,8 +585,27 @@ class CropState extends State<Crop> {
                 double right = (_startingRect.right + dx).clamp(_startingRect.left + 40, _viewSize.width - 16);
                 double dy = details.position.dy - _startingPosition.dy;
                 double bottom = (_startingRect.bottom + dy).clamp(_startingRect.top + 40, _viewSize.height - 16);
+                Offset offset = viewToSourceOffset(Offset(right, bottom));
+                double h = bottom - _startingRect.top;
+                double w = right - _startingRect.left;
+                // if we have too much width/height then just scale up the image to accommodate
+                if (_image.width * _scale < w) {
+                  _scale = w / _image.width;
+                }
+                if (_image.height * _scale < h) {
+                  _scale = h / _image.height;
+                }
+
+                Offset adjustment = Offset(0, 0);
+                if (offset.dx > _image.width) {
+                  adjustment -= Offset(offset.dx - _image.width, 0);
+                }
+                if (offset.dy > _image.height) {
+                  adjustment -= Offset(0, offset.dy - _image.height);
+                }
                 setState(() {
                   _cropArea = getClampedCropArea(Rect.fromLTRB(_startingRect.left, _startingRect.top, right, bottom));
+                  _offset -= adjustment;
                 });
               },
             ),
@@ -586,8 +641,27 @@ class CropState extends State<Crop> {
                 double left = (_startingRect.left + dx).clamp(16.0,  _startingRect.right - 40);
                 double dy = details.position.dy - _startingPosition.dy;
                 double bottom = (_startingRect.bottom + dy).clamp(_startingRect.top + 40, _viewSize.height - 16);
+                Offset offset = viewToSourceOffset(Offset(left, bottom));
+                double h = bottom - _startingRect.top;
+                double w = _startingRect.right - left;
+                // if we have too much width/height then just scale up the image to accommodate
+                if (_image.width * _scale < w) {
+                  _scale = w / _image.width;
+                }
+                if (_image.height * _scale < h) {
+                  _scale = h / _image.height;
+                }
+
+                Offset adjustment = Offset(0, 0);
+                if (offset.dx < 0) {
+                  adjustment -= Offset(offset.dx, 0);
+                }
+                if (offset.dy > _image.height) {
+                  adjustment -= Offset(0, offset.dy - _image.height);
+                }
                 setState(() {
                   _cropArea = getClampedCropArea(Rect.fromLTRB(left, _startingRect.top, _startingRect.right, bottom));
+                  _offset -= adjustment;
                 });
               },
             ),
@@ -596,11 +670,6 @@ class CropState extends State<Crop> {
       );
     });
   }
-
-  double get topMargin => _cropArea?.top ?? 0;
-  double get leftMargin => _cropArea?.left ?? 0;
-  double get rightMargin => _viewSize != null && _cropArea != null ? (_viewSize.width - _cropArea?.right) : 0;
-  double get bottomMargin => _viewSize != null && _cropArea != null ? (_viewSize.height - _cropArea?.bottom) : 0;
 
   @override
   void didChangeDependencies() {
@@ -653,22 +722,12 @@ class CropState extends State<Crop> {
       _minScale = screenScale;
     }
 
-    // initial crop area
-    double minX = _viewSize.width - _image.width * _scale;
-    double minY = _viewSize.height - _image.height * _scale;
-    double maxX = 0;
-    double maxY = 0;
-    if (0 < minX) {
-      maxX = minX = minX / 2;
-    }
-    if (0 < minY) {
-      maxY = minY = minY / 2;
-    }
     setState(() {
       _cropArea = Rect.fromLTRB(0.1 * _viewSize.width, 0.1 * _viewSize.height, 0.9 * _viewSize.width, 0.9 * _viewSize.height);
     });
   }
 
+  // portion of image visible in view
   Rect get visibleRect {
     double left = -_offset.dx / _scale;
     double top = -_offset.dy / _scale;
@@ -681,6 +740,7 @@ class CropState extends State<Crop> {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
+  // portion of image to be cropped
   Rect get cropRect {
     double left = (_cropArea.left - _offset.dx) / _scale;
     double top = (_cropArea.top - _offset.dy) / _scale;
@@ -689,13 +749,31 @@ class CropState extends State<Crop> {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  Rect get validOffset {
-    double left = 0 * _scale + _offset.dx;
-    double top = 0 * _scale + _offset.dy;
-    double right = _image.width * _scale + _offset.dx;
-    double bottom = _image.height * _scale + _offset.dy;
+  // image rect to view rect
+  Rect sourceToViewRect(Rect rect) {
+    double left = rect.left * _scale + _offset.dx;
+    double top = rect.top * _scale + _offset.dy;
+    double right = rect.right * _scale + _offset.dx;
+    double bottom = rect.bottom * _scale + _offset.dy;
     return Rect.fromLTRB(left, top, right, bottom);
   }
+
+  // image offset to view offset
+  Offset sourceToViewOffset(Offset offset) {
+    return offset * _scale + _offset;
+  }
+
+  // view offset to image offset
+  Offset viewToSourceOffset(Offset offset) {
+    return (offset - _offset) / _scale;
+  }
+
+  Rect get validOffset => sourceToViewRect(Rect.fromLTRB(0, 0, _image.width.toDouble(), _image.height.toDouble()));
+
+  double get topMargin => _cropArea?.top ?? 0;
+  double get leftMargin => _cropArea?.left ?? 0;
+  double get rightMargin => _viewSize != null && _cropArea != null ? (_viewSize.width - _cropArea?.right) : 0;
+  double get bottomMargin => _viewSize != null && _cropArea != null ? (_viewSize.height - _cropArea?.bottom) : 0;
 
   @override
   void dispose() {
