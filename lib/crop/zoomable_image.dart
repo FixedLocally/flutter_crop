@@ -6,15 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 
-class ZoomableImage extends StatefulWidget {
+class Crop extends StatefulWidget {
   final ImageProvider image;
   final double maxScale;
   final double minScale;
   final GestureTapCallback onTap;
   final Color backgroundColor;
   final Widget placeholder;
+  final bool debug;
 
-  ZoomableImage(
+  Crop(
       this.image, {
         Key key,
         @deprecated double scale,
@@ -28,14 +29,16 @@ class ZoomableImage extends StatefulWidget {
 
         /// Placeholder widget to be used while [image] is being resolved.
         this.placeholder,
+
+        this.debug,
       }) : super(key: key);
 
   @override
-  ZoomableImageState createState() => new ZoomableImageState();
+  CropState createState() => new CropState();
 }
 
 // See /flutter/examples/layers/widgets/gestures.dart
-class ZoomableImageState extends State<ZoomableImage> {
+class CropState extends State<Crop> {
   ImageStream _imageStream;
   ui.Image _image;
   Size _imageSize;
@@ -53,10 +56,12 @@ class ZoomableImageState extends State<ZoomableImage> {
   Size _canvasSize;
   Size _viewSize;
   double _minScale;
+  double _maxScale;
+  bool _dragging = false;
 
-  Rect _cropArea;
+  Rect _cropArea = Rect.fromLTRB(0, 0, 0, 0);
 
-  Rect get clampedCropArea {
+  Rect getClampedCropArea(Rect _cropArea) {
     Rect validArea = validOffset;
     double left = _cropArea.left.clamp(validArea.left, double.infinity);
     double top = _cropArea.top.clamp(validArea.top, double.infinity);
@@ -70,6 +75,7 @@ class ZoomableImageState extends State<ZoomableImage> {
   void initState() {
     super.initState();
     _minScale = widget.minScale;
+    _maxScale = widget.maxScale;
   }
 
   void _centerAndScaleImage() {
@@ -95,25 +101,9 @@ class ZoomableImageState extends State<ZoomableImage> {
 
   // ignore: unused_element
   Function() _handleDoubleTap(BuildContext ctx) {
-    // we will make a bettwer handler later
+    // TODO we will make a better handler later
     return () {
-      double newScale = _scale * 2;
-      if (newScale > widget.maxScale) {
-        _centerAndScaleImage();
-        setState(() {});
-        return;
-      }
 
-      // We want to zoom in on the center of the screen.
-      // Since we're zooming by a factor of 2, we want the new offset to be twice
-      // as far from the center in both width and height than it is now.
-      Offset center = ctx.size.center(Offset.zero);
-      Offset newOffset = _offset - (center - _offset);
-
-      setState(() {
-        _scale = newScale;
-        _offset = newOffset;
-      });
     };
   }
 
@@ -126,8 +116,8 @@ class ZoomableImageState extends State<ZoomableImage> {
 
   void _handleScaleUpdate(ScaleUpdateDetails d) {
     double newScale = _previousScale * d.scale;
-    if (newScale > widget.maxScale) {
-      newScale = widget.maxScale;
+    if (newScale > _maxScale) {
+      newScale = _maxScale;
     }
     if (newScale < _minScale) {
       newScale = _minScale;
@@ -152,19 +142,26 @@ class ZoomableImageState extends State<ZoomableImage> {
     newOffset = Offset(clampedX, clampedY);
 
     // make sure the crop area is within the bounds
-    print(_cropArea);
     setState(() {
       _scale = newScale;
       _offset = newOffset;
-      _cropArea = clampedCropArea;
+      _cropArea = getClampedCropArea(_cropArea);
     });
   }
 
   void _handleScaleEnd(ScaleEndDetails details) {
-    print('visible rect=$visibleRect');
-    print('crop rect=$cropRect');
-    print('current crop area=$_cropArea');
-    print('valid crop area=$validOffset');
+  }
+
+  void _handleDragStart([_]) {
+    setState(() {
+      _dragging = true;
+    });
+  }
+
+  void _handleDragEnd([_]) {
+    setState(() {
+      _dragging = false;
+    });
   }
 
   @override
@@ -174,12 +171,21 @@ class ZoomableImageState extends State<ZoomableImage> {
           afterImageReady(context));
     }
     Widget paintWidget() {
+      String debugString = '';
+      if (widget.debug) {
+        debugString = 'Crop area = $_cropArea\n'
+            'Crop Rect = $cropRect\n'
+            'Offset = $_offset\n'
+            'Scale = $_scale\n'
+            'Dragging = $_dragging';
+      }
       return new CustomPaint(
         child: new Container(color: widget.backgroundColor),
         foregroundPainter: new _ZoomableImagePainter(
           image: _image,
           offset: _offset,
           scale: _scale,
+          debugString: debugString,
         ),
       );
     }
@@ -206,6 +212,46 @@ class ZoomableImageState extends State<ZoomableImage> {
             onScaleUpdate: _handleScaleUpdate,
             onScaleEnd: _handleScaleEnd,
           ),
+          Positioned( // horizontal grid block
+            left: _cropArea.width / 3 + _cropArea.left,
+            top: _cropArea.top,
+            child: Container(
+              height: _cropArea.height,
+              width: _cropArea.width / 3,
+              decoration: _dragging ? BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: Colors.white70,
+                    width: 1,
+                  ),
+                  right: BorderSide(
+                    color: Colors.white70,
+                    width: 1,
+                  ),
+                ),
+              ) : null,
+            ),
+          ),
+          Positioned( // horizontal grid block
+            top: _cropArea.height / 3 +_cropArea.top,
+            left: _cropArea.left,
+            child: Container(
+              height: _cropArea.height / 3,
+              width: _cropArea.width,
+              decoration: _dragging ? BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white70,
+                    width: 1,
+                  ),
+                  bottom: BorderSide(
+                    color: Colors.white70,
+                    width: 1,
+                  ),
+                ),
+              ) : null,
+            ),
+          ),
           Positioned( // top block
             left: 0,
             top: 0,
@@ -213,7 +259,7 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: Container(
               height: _cropArea?.top ?? 0,
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: Colors.black.withOpacity(0.7),
               ),
             ),
           ),
@@ -224,7 +270,7 @@ class ZoomableImageState extends State<ZoomableImage> {
               height: _cropArea?.height ?? 0,
               width: leftMargin,
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: Colors.black.withOpacity(0.7),
               ),
             ),
           ),
@@ -235,7 +281,7 @@ class ZoomableImageState extends State<ZoomableImage> {
               height: _cropArea?.height ?? 0,
               width: rightMargin,
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: Colors.black.withOpacity(0.7),
               ),
             ),
           ),
@@ -246,7 +292,7 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: Container(
               height: bottomMargin,
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: Colors.black.withOpacity(0.7),
               ),
             ),
           ),
@@ -257,12 +303,9 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: GestureDetector(
               onVerticalDragUpdate: (DragUpdateDetails details) {
                 double dy = details.delta.dy;
-                if (_cropArea.height - dy < 40 || _cropArea.top + dy < 16) {
-                  return;
-                }
+                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
                 setState(() {
-                  _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top + dy, _cropArea.right, _cropArea.bottom);
-                  _cropArea = clampedCropArea;
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, top, _cropArea.right, _cropArea.bottom));
                 });
               },
               child: Column(
@@ -285,6 +328,9 @@ class ZoomableImageState extends State<ZoomableImage> {
                   ),
                 ],
               ),
+              onVerticalDragStart: _handleDragStart,
+              onVerticalDragCancel: _handleDragEnd,
+              onVerticalDragEnd: _handleDragEnd,
             ),
           ),
           Positioned( // bottom bar
@@ -294,12 +340,9 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: GestureDetector(
               onVerticalDragUpdate: (DragUpdateDetails details) {
                 double dy = details.delta.dy;
-                if (_cropArea.height + dy < 40 || _cropArea.bottom + dy > _viewSize.height - 16) {
-                  return;
-                }
+                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40.0, _viewSize.height - 16);
                 setState(() {
-                  _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right, _cropArea.bottom + dy);
-                  _cropArea = clampedCropArea;
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right, bottom));
                 });
               },
               child: Column(
@@ -322,6 +365,9 @@ class ZoomableImageState extends State<ZoomableImage> {
                   ),
                 ],
               ),
+              onVerticalDragStart: _handleDragStart,
+              onVerticalDragCancel: _handleDragEnd,
+              onVerticalDragEnd: _handleDragEnd,
             ),
           ),
           Positioned( // left bar
@@ -331,12 +377,9 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: GestureDetector(
               onHorizontalDragUpdate: (DragUpdateDetails details) {
                 double dx = details.delta.dx;
-                if (_cropArea.width - dx < 40 || _cropArea.left + dx < 16) {
-                  return;
-                }
+                double left = (_cropArea.left + dx).clamp(16.0, _cropArea.right - 40);
                 setState(() {
-                  _cropArea = Rect.fromLTRB(_cropArea.left + dx, _cropArea.top, _cropArea.right, _cropArea.bottom);
-                  _cropArea = clampedCropArea;
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _cropArea.top, _cropArea.right, _cropArea.bottom));
                 });
               },
               child: Row(
@@ -359,6 +402,9 @@ class ZoomableImageState extends State<ZoomableImage> {
                   ),
                 ],
               ),
+              onHorizontalDragStart: _handleDragStart,
+              onHorizontalDragCancel: _handleDragEnd,
+              onHorizontalDragEnd: _handleDragEnd,
             ),
           ),
           Positioned( // right bar
@@ -368,12 +414,9 @@ class ZoomableImageState extends State<ZoomableImage> {
             child: GestureDetector(
               onHorizontalDragUpdate: (DragUpdateDetails details) {
                 double dx = details.delta.dx;
-                if (_cropArea.width + dx < 40 || _cropArea.right + dx > _viewSize.width - 16) {
-                  return;
-                }
+                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
                 setState(() {
-                  _cropArea = Rect.fromLTRB(_cropArea.left, _cropArea.top, _cropArea.right + dx, _cropArea.bottom);
-                  _cropArea = clampedCropArea;
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, right, _cropArea.bottom));
                 });
               },
               child: Row(
@@ -396,6 +439,151 @@ class ZoomableImageState extends State<ZoomableImage> {
                   ),
                 ],
               ),
+              onHorizontalDragStart: _handleDragStart,
+              onHorizontalDragCancel: _handleDragEnd,
+              onHorizontalDragEnd: _handleDragEnd,
+            ),
+          ),
+          Positioned( // top-left piece
+            left: _cropArea.left - 1,
+            top: _cropArea.top - 1,
+            child: Listener(
+              child: Container(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
+                  child: Container(
+                    height: 16,
+                    width: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: Border(
+                        top: BorderSide(color: Colors.white, width: 5),
+                        left: BorderSide(color: Colors.white, width: 5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              onPointerDown: _handleDragStart,
+              onPointerCancel: _handleDragEnd,
+              onPointerUp: _handleDragEnd,
+              onPointerMove: (PointerMoveEvent details) {
+                double dx = details.delta.dx;
+                double left = (_cropArea.left + dx).clamp(16.0, _cropArea.right - 40);
+                double dy = details.delta.dy;
+                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
+                setState(() {
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, top, _cropArea.right, _cropArea.bottom));
+                });
+              },
+            ),
+          ),
+          Positioned( // top-right piece
+            left: _cropArea.right + 1 - 24,
+            top: _cropArea.top - 1,
+            child: Listener(
+              child: Container(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                  child: Container(
+                    height: 16,
+                    width: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: Border(
+                        top: BorderSide(color: Colors.white, width: 5),
+                        right: BorderSide(color: Colors.white, width: 5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              onPointerDown: _handleDragStart,
+              onPointerCancel: _handleDragEnd,
+              onPointerUp: _handleDragEnd,
+              onPointerMove: (PointerMoveEvent details) {
+                double dx = details.delta.dx;
+                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
+                double dy = details.delta.dy;
+                double top = (_cropArea.top + dy).clamp(16.0, _cropArea.bottom - 40);
+                setState(() {
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, top, right, _cropArea.bottom));
+                });
+              },
+            ),
+          ),
+          Positioned( // bottom-right piece
+            left: _cropArea.right + 1 - 24,
+            top: _cropArea.bottom + 1 - 24,
+            child: Listener(
+              child: Container(
+                width: 24,
+                height: 24,
+                color: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
+                  child: Container(
+                    height: 16,
+                    width: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.white, width: 5),
+                        right: BorderSide(color: Colors.white, width: 5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              onPointerDown: _handleDragStart,
+              onPointerCancel: _handleDragEnd,
+              onPointerUp: _handleDragEnd,
+              onPointerMove: (PointerMoveEvent details) {
+                double dx = details.delta.dx;
+                double right = (_cropArea.right + dx).clamp(_cropArea.left + 40, _viewSize.width - 16);
+                double dy = details.delta.dy;
+                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40, _viewSize.height - 16);
+                setState(() {
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(_cropArea.left, _cropArea.top, right, bottom));
+                });
+              },
+            ),
+          ),
+          Positioned( // bottom-left piece
+            left: _cropArea.left - 1,
+            top: _cropArea.bottom + 1 - 24,
+            child: Listener(
+              child: Container(
+                width: 24,
+                height: 24,
+                color: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 8, 0),
+                  child: Container(
+                    height: 16,
+                    width: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.transparent,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.white, width: 5),
+                        left: BorderSide(color: Colors.white, width: 5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              onPointerDown: _handleDragStart,
+              onPointerCancel: _handleDragEnd,
+              onPointerUp: _handleDragEnd,
+              onPointerMove: (PointerMoveEvent details) {
+                double dx = details.delta.dx;
+                double left = (_cropArea.left + dx).clamp(16,  _cropArea.right - 40);
+                double dy = details.delta.dy;
+                double bottom = (_cropArea.bottom + dy).clamp(_cropArea.top + 40, _viewSize.height - 16);
+                setState(() {
+                  _cropArea = getClampedCropArea(Rect.fromLTRB(left, _cropArea.top, _cropArea.right, bottom));
+                });
+              },
             ),
           ),
         ],
@@ -454,8 +642,9 @@ class ZoomableImageState extends State<ZoomableImage> {
     } else {
       screenScale = hScale;
     }
+    screenScale *= 0.8;
     if (screenScale > _minScale) {
-      _minScale = screenScale * 0.8;
+      _minScale = screenScale;
     }
 
     // initial crop area
@@ -471,7 +660,6 @@ class ZoomableImageState extends State<ZoomableImage> {
     }
     setState(() {
       _cropArea = Rect.fromLTRB(0.1 * _viewSize.width, 0.1 * _viewSize.height, 0.9 * _viewSize.width, 0.9 * _viewSize.height);
-      _cropArea = clampedCropArea;
     });
   }
 
@@ -511,11 +699,12 @@ class ZoomableImageState extends State<ZoomableImage> {
 }
 
 class _ZoomableImagePainter extends CustomPainter {
-  const _ZoomableImagePainter({this.image, this.offset, this.scale});
+  const _ZoomableImagePainter({this.image, this.offset, this.scale, this.debugString = ''});
 
   final ui.Image image;
   final Offset offset;
   final double scale;
+  final String debugString;
 
   @override
   void paint(Canvas canvas, Size canvasSize) {
@@ -528,6 +717,26 @@ class _ZoomableImagePainter extends CustomPainter {
       image: image,
       fit: BoxFit.fill,
     );
+
+    if (debugString.isNotEmpty) {
+      TextSpan span = TextSpan(
+        text: debugString,
+        style: TextStyle(
+          color: Colors.pinkAccent,
+          fontSize: 16,
+        ),
+      );
+      TextPainter painter = TextPainter(
+        text: span,
+        textDirection: TextDirection.ltr,
+      );
+      painter.layout(
+        minWidth: 0,
+        maxWidth: canvasSize.width,
+      );
+      final offset = Offset(15, 15);
+      painter.paint(canvas, offset);
+    }
   }
 
   @override
