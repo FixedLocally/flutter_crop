@@ -729,7 +729,7 @@ class CropState extends State<Crop> {
     }
 
     setState(() {
-      _cropArea = Rect.fromLTRB(0.1 * _viewSize.width, 0.1 * _viewSize.height, 0.9 * _viewSize.width, 0.9 * _viewSize.height);
+      _cropArea = getClampedCropArea(Rect.fromLTRB(0.1 * _viewSize.width, 0.1 * _viewSize.height, 0.9 * _viewSize.width, 0.9 * _viewSize.height));
     });
   }
 
