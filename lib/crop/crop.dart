@@ -135,16 +135,16 @@ class CropState extends State<Crop> {
     final Offset normalizedOffset =
         (_startingFocalPoint - _previousOffset) / _previousScale;
     Offset newOffset = d.focalPoint - normalizedOffset * newScale;
-    double minX = (_cropArea.right - _image.width * _scale).clamp(-double.infinity, 16.0);
-    double minY = (_cropArea.bottom - _image.height * _scale).clamp(-double.infinity, 16.0);
+    double minX = (_cropArea.right - _image.width * _scale);//.clamp(-double.infinity, 16.0);
+    double minY = (_cropArea.bottom - _image.height * _scale);//.clamp(-double.infinity, 16.0);
     double maxX = _cropArea.left;
     double maxY = _cropArea.top;
-//    if (0 < minX) {
-//      maxX = minX = minX / 2;
-//    }
-//    if (0 < minY) {
-//      maxY = minY = minY / 2;
-//    }
+    if (maxX < minX) {
+      maxX = minX = (minX + maxX) / 2;
+    }
+    if (maxY < minY) {
+      maxY = minY = (minY + maxY) / 2;
+    }
     double clampedX = newOffset.dx.clamp(minX, maxX);
     double clampedY = newOffset.dy.clamp(minY, maxY);
     newOffset = Offset(clampedX, clampedY);
